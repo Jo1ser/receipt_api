@@ -5,7 +5,6 @@ from receipt_api.app.models import Base
 
 client = TestClient(app)
 
-# Global variable to store the token
 token = None
 
 def setup_module(module):
@@ -27,7 +26,7 @@ def test_register_user():
 
 def test_login_user():
     """
-    Logs in the user and saves the token to a global variable instead of returning it.
+    Logs in the user and saves the token to a global variable.
     """
     global token
     response = client.post("/auth/login", json={
@@ -39,7 +38,7 @@ def test_login_user():
     token_value = response.json().get("access_token")
     assert token_scheme == "bearer"
     assert token_value is not None
-    token = token_value  # store in global
+    token = token_value
 
 def test_create_receipt():
     global token
@@ -80,7 +79,7 @@ def test_view_public_receipt():
 
 def run_tests():
     test_register_user()
-    test_login_user()         # Make sure this runs before tests that need the token
+    test_login_user()
     test_create_receipt()
     test_list_receipts()
     test_view_single_receipt()

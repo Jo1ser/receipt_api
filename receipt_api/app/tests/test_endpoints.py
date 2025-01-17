@@ -5,14 +5,15 @@ from receipt_api.app.models import Base
 
 client = TestClient(app)
 
+# Global variable to store the token
+token = None
+
 def setup_module(module):
     """ setup any state specific to the execution of the given module."""
     Base.metadata.create_all(bind=engine)
 
 def teardown_module(module):
-    """ teardown any state that was previously setup with a setup_module
-    method.
-    """
+    """ teardown any state that was previously setup with a setup_module method."""
     Base.metadata.drop_all(bind=engine)
 
 def test_register_user():
@@ -25,17 +26,23 @@ def test_register_user():
     assert response.json() == {"message": "User registered successfully"}
 
 def test_login_user():
+    """
+    Logs in the user and saves the token to a global variable instead of returning it.
+    """
+    global token
     response = client.post("/auth/login", json={
         "username": "testuser",
         "password": "testpassword"
     })
     assert response.status_code == 200
-    token = response.json().get("access_token")
-    assert token is not None
-    return token
+    token_scheme = response.json().get("token_type")
+    token_value = response.json().get("access_token")
+    assert token_scheme == "bearer"
+    assert token_value is not None
+    token = token_value  # store in global
 
 def test_create_receipt():
-    token = test_login_user()
+    global token
     headers = {"Authorization": f"Bearer {token}"}
     response = client.post("/receipts/", headers=headers, json={
         "products": [
@@ -47,14 +54,14 @@ def test_create_receipt():
     assert "id" in response.json()
 
 def test_list_receipts():
-    token = test_login_user()
+    global token
     headers = {"Authorization": f"Bearer {token}"}
     response = client.get("/receipts", headers=headers)
     assert response.status_code == 200
     assert isinstance(response.json(), list)
 
 def test_view_single_receipt():
-    token = test_login_user()
+    global token
     headers = {"Authorization": f"Bearer {token}"}
     response = client.get("/receipts", headers=headers)
     receipt_id = response.json()[0]["id"]
@@ -63,7 +70,7 @@ def test_view_single_receipt():
     assert "id" in response.json()
 
 def test_view_public_receipt():
-    token = test_login_user()
+    global token
     headers = {"Authorization": f"Bearer {token}"}
     response = client.get("/receipts", headers=headers)
     receipt_link = response.json()[0]["receipt_link"]
@@ -73,6 +80,7 @@ def test_view_public_receipt():
 
 def run_tests():
     test_register_user()
+    test_login_user()         # Make sure this runs before tests that need the token
     test_create_receipt()
     test_list_receipts()
     test_view_single_receipt()
